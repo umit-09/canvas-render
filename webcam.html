@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Particle Simulation</title>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+    }
+    canvas {
+        display: block;
+    }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let video;
+    let animationFrameId;
+
+    // Access webcam stream
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            video = document.createElement('video');
+            video.srcObject = stream;
+            video.play();
+            video.addEventListener('loadedmetadata', startAnimation);
+        })
+        .catch(err => console.error('Error accessing webcam:', err));
+
+    function startAnimation() {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        function drawFrame() {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const particles = [];
+
+            const distanceBetweenDots = 4; // Distance between the centers of dots
+
+            const numDotsX = Math.floor(canvas.width / distanceBetweenDots);
+            const numDotsY = Math.floor(canvas.height / distanceBetweenDots);
+
+            const startX = (canvas.width - numDotsX * distanceBetweenDots) / 2;
+            const startY = (canvas.height - numDotsY * distanceBetweenDots) / 2;
+
+            for (let i = 0; i < numDotsX; i++) {
+                for (let j = 0; j < numDotsY; j++) {
+                    const x = startX + i * distanceBetweenDots + distanceBetweenDots / 2;
+                    const y = startY + j * distanceBetweenDots + distanceBetweenDots / 2;
+                    const pixelColor = getPixelColor(imageData, Math.floor(x), Math.floor(y));
+                    const radius = 2 + (1 - pixelColor[3] / 255) * 3; // Adjust this value to control particle size
+                    particles.push({
+                        x: x,
+                        y: y,
+                        radius: radius,
+                        color: `rgba(${pixelColor[0]}, ${pixelColor[1]}, ${pixelColor[2]}, 1)` // Set color to sampled color
+                    });
+                }
+            }
+
+            function getPixelColor(imageData, x, y) {
+                const index = (y * imageData.width + x) * 4;
+                return [
+                    imageData.data[index], // Red
+                    imageData.data[index + 1], // Green
+                    imageData.data[index + 2], // Blue
+                    imageData.data[index + 3] // Alpha
+                ];
+            }
+
+            function drawParticles() {
+                particles.forEach(particle => {
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = particle.color;
+                    ctx.fill();
+                });
+            }
+
+            // Clear canvas before drawing particles
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawParticles();
+
+            animationFrameId = requestAnimationFrame(drawFrame);
+        }
+
+        drawFrame();
+    }
+
+    function stopAnimation() {
+        cancelAnimationFrame(animationFrameId);
+        video.pause();
+    }
+</script>
+</body>
+</html>
